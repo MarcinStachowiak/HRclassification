@@ -60,6 +60,12 @@ setupEnvironment <- function(){
   if (!is.element('properties', installed.packages()[, 1])) {
     install.packages('properties', repos = "http://cran.rstudio.com/")
   }
+  library(devtools)
+  if (!is.element('ggbiplot', installed.packages()[, 1])) {
+    
+    install_github('ggbiplot', 'vqv')
+  }
+  library(ggbiplot)
   library(logging)
   library(properties)
   basicConfig() # logger

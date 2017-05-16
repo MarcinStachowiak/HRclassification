@@ -47,3 +47,13 @@ data_processing.plot_cumulative_pca <- function(data.in.pca){
     geom_text(size = 3, position = position_stack(vjust =0.97),label=round(cumsum(data.in.pca.stddev.prop),digits=2))+
     labs(title='Kumulatywna proporcja wyjasnianej wariancji cech wejściowych przez niezalezne komponenty',x='Niezalezne komponenty', y = 'Kumulatywna proporcja wyjasnionej wariancji')
 }
+
+data_processing.plot_biplot <- function(data.in.pca,data.out){
+  g <- ggbiplot(data.in.pca , obs.scale = 1, var.scale = 1, 
+                groups = data.out, ellipse = TRUE, 
+                circle = TRUE)
+  g <- g + scale_color_continuous(name = '')
+  g <- g + theme(legend.direction = 'horizontal', 
+                 legend.position = 'top')
+  return (g)
+  }

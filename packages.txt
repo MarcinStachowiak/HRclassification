@@ -1,6 +1,4 @@
-pastecs
 ggplot2
 plyr
 corrplot
-devtools
-colorspace
+digest
