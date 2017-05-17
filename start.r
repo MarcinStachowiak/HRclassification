@@ -61,3 +61,21 @@ exporter.save_as_png(plot,'kumulatywne_wyjasnienie_wariancji','pca')
 
 plot<- data_processing.plot_biplot(data.in.pca,data.out)
 exporter.save_as_png(plot,'biplot','pca')
+
+
+data.in.pca.train.folds.indexes <- createFolds(data.out, k = 10, list = TRUE, returnTrain = TRUE)
+for (simple.train.fold.indexes in data.in.pca.train.folds.indexes) {
+  data.in.train <- data.in.pca$x[simple.train.fold.indexes,]
+  data.in.test <- data.in.pca$x[-simple.train.fold.indexes,]
+  data.out.train <- data.out[simple.train.fold.indexes]
+  data.out.test <- data.out[-simple.train.fold.indexes]
+  
+  # tutaj dodać różne modele np.:
+  # model liniowy
+  # model kwadratowy
+  # model sieci neuronowej
+}
+
+
+
+
