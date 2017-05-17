@@ -2,3 +2,10 @@ ggplot2
 plyr
 corrplot
 digest
+caret
+rpart
+rpart.plot
+randomForest
+kknn
+FSelector
+devtools

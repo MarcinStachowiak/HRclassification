@@ -1,12 +1,29 @@
 data_processing.plot_histogram_for_two_clases <- function(data_input,data_output,binwidth,y_title,x_title,title){
-  df <- data.frame(data_output=factor(data_output),
-                   data_input=data_input)
+  df <- data.frame(
+    data_output=factor(data_output), 
+    data_input=data_input
+    )
   mu <- ddply(df, "data_output", summarise, grp.mean=mean(data_input))
-  ggplot(df, aes(x=data_input,fill=data_output,color=data_output)) + 
+  ggplot(
+    df, 
+    aes(x=data_input,fill=data_output,color=data_output)) + 
     geom_histogram(binwidth =binwidth,alpha=0.5,position="identity") +
-    geom_vline(data=mu, aes(xintercept=grp.mean, color=data_output),linetype="dashed", size=1,show.legend = F)+ 
+    scale_x_continuous(breaks= pretty_breaks())+
+    geom_vline(data=mu, aes(xintercept=grp.mean, color=data_output),linetype="dashed", size=1,show.legend = F) + 
     labs(title=title,x=x_title, y = y_title) +
     theme(plot.title = element_text(hjust = 0.5))
+}
+
+
+data_processing.plot_correlation <- function(COR){
+  col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+  p <- corrplot(COR, method="color", col=col(200),  
+                type="upper", order="hclust", 
+                addCoef.col = "black", # Add coefficient of correlation
+                tl.col="black", tl.srt=45, #Text label color and rotationcorrplot
+                diag=T 
+  )
+  return(p)
 }
 
 data_processing.convert_to_numerical_values <- function(data_frame){
