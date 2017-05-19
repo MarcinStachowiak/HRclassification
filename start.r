@@ -81,24 +81,14 @@ data_processing.plot_cumulative_pca(data.in.pca)
 
 data_processing.plot_biplot(data.in.pca, data.out)
 
-data.in.pca.train.folds.indexes <-  createFolds(data.out,
-                                                k = 10,
-                                                list = TRUE,
-                                                returnTrain = TRUE)
-#for (simple.train.fold.indexes in data.in.pca.train.folds.indexes) {
-simple.train.fold.indexes = data.in.pca.train.folds.indexes[[1]]
-data.in.train <- data.in.pca$x[simple.train.fold.indexes, ]
-data.in.test <- data.in.pca$x[-simple.train.fold.indexes, ]
-data.out.train <- data.out[simple.train.fold.indexes]
-data.out.test <- data.out[-simple.train.fold.indexes]
 
-# tutaj dodać różne modele np.:
-# model liniowy
-# model kwadratowy
-# model sieci neuronowej
-#}
+# Przygotowanie danych treningowych
+splitSample <- sample(1:2, size=nrow(data.raw),prob=c(0.8,0.2), replace=TRUE)
+data.train <- data.raw[splitSample==1,]
+data.test <- data.raw[splitSample==2,]
 
-tree_model <- rpart(formula = data.formula,  data = data)
+
+tree_model <- rpart(formula = data.formula,  data = data.train)
 
 rpart.plot(
   tree_model ,
@@ -108,7 +98,26 @@ rpart.plot(
   nn = TRUE
 )
 
+# predykcja
 
+prediction <- predict(tree_model, newdata=data.test[, !(column_names %in% 'left')])
+
+# nie zawsze działa
+confusionMatrix(prediction, data.test$left)
+
+# ale za to można zrobić macierz manualnie
+dataLevels <-min(data.test$left):max(data.test$left)
+table(factor(prediction, levels=dataLevels),factor(data.test$left, levels=dataLevels))
+
+
+# inne modele
+
+#kmeans
+klasters <- kmeans(x = data, centers = 2)
+Groups <- as.factor(klasters$cluster)
+ggplot(data, aes(satisfaction_level, salary, color = Groups)) + geom_point()
+
+# kknn
 kknn_model <-
   kknn(
     formula = data.formula,
@@ -119,12 +128,38 @@ kknn_model <-
     distance = 1
   )
 
+# random forest
 random_forest_model <- randomForest(formula = data.formula,  data)
 
 
-predict(random_forest_model, data[1:3, !(column_names %in% 'left')])
+data.in.pca.train.folds.indexes <-  createFolds(data.out,
+                                                k = 10,
+                                                list = TRUE,
+                                                returnTrain = TRUE)
 
-klasters <- kmeans(x = data,
-                   centers = 2)
-Groups <- as.factor(klasters$cluster)
-ggplot(data, aes(satisfaction_level, salary, color = Groups)) + geom_point()
+
+for (simple.train.fold.indexes in data.in.pca.train.folds.indexes) {
+  simple.train.fold.indexes <-data.in.pca.train.folds.indexes$Fold02
+    
+  
+    data.in.train <- as.data.frame(data.in.pca$x[simple.train.fold.indexes, ])
+    data.in.test <- as.data.frame(data.in.pca$x[-simple.train.fold.indexes, ])
+    data.out.train <- data.out[simple.train.fold.indexes]
+    data.out.test <- data.out[-simple.train.fold.indexes]
+  
+  #potrzebuje all w jednym data frame i dupa bo mam left w innym ....
+  data.in.train$left <- data.out.train
+  
+  tree_model <- rpart(formula = data.formula,  data = data.in.train)
+  
+  prediction <- predict(tree_model, newdata= data.in.test)
+  dataLevels <-min(data.out.test):max(data.out.test)
+  table(factor(prediction, levels=dataLevels),factor(data.out.test, levels=dataLevels))
+  
+  
+  # tutaj dodać różne modele np.:
+  # model liniowy
+  # model kwadratowy
+  # model sieci neuronowej
+}
+
