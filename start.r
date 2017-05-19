@@ -99,16 +99,17 @@ rpart.plot(
 )
 
 # predykcja
-
-prediction <- predict(tree_model, newdata=data.test[, !(column_names %in% 'left')])
+prediction <- round(predict(tree_model, newdata=data.test[, !(column_names %in% 'left')],type ="vector"))
 
 # nie zawsze działa
 confusionMatrix(prediction, data.test$left)
 
 # ale za to można zrobić macierz manualnie
 dataLevels <-min(data.test$left):max(data.test$left)
-table(factor(prediction, levels=dataLevels),factor(data.test$left, levels=dataLevels))
+confusion<-table(factor(prediction, levels=dataLevels),factor(data.test$left, levels=dataLevels))
 
+accuracy <- (confusion[1,1]+confusion[2,2])/nrow(data.test)
+error <- 1 - accuracy
 
 # inne modele
 
@@ -138,6 +139,7 @@ data.in.pca.train.folds.indexes <-  createFolds(data.out,
                                                 returnTrain = TRUE)
 
 
+threshold <- 0.5
 for (simple.train.fold.indexes in data.in.pca.train.folds.indexes) {
   simple.train.fold.indexes <-data.in.pca.train.folds.indexes$Fold02
     
@@ -152,10 +154,11 @@ for (simple.train.fold.indexes in data.in.pca.train.folds.indexes) {
   
   tree_model <- rpart(formula = data.formula,  data = data.in.train)
   
-  prediction <- predict(tree_model, newdata= data.in.test)
+  prediction <- round(predict(tree_model, newdata= data.in.test))
   dataLevels <-min(data.out.test):max(data.out.test)
-  table(factor(prediction, levels=dataLevels),factor(data.out.test, levels=dataLevels))
-  
+  confusion <- table(factor(prediction, levels=dataLevels),factor(data.out.test, levels=dataLevels))
+  accuracy <- (confusion[1,1]+confusion[2,2])/nrow(data.in.test)
+  error <- 1 - accuracy
   
   # tutaj dodać różne modele np.:
   # model liniowy
