@@ -132,7 +132,7 @@ data.norm.train <- data.norm[splitSample==1,]
 data.norm.test <- data.norm[splitSample==2,]
 
 
-nn_model <- neuralnet(formula = data.raw.formula, data=data.norm.train, hidden=c(18),linear.output=FALSE)
+nn_model <- neuralnet(formula = data.raw.formula, data=data.norm.train, hidden=c(6),linear.output=FALSE)
 # graficzne przedstawienie sieci neuronowej
 plot(nn_model)
 
