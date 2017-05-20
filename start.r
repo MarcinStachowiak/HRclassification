@@ -24,8 +24,9 @@ summary(data.raw)
 
 # analiza wplywu cech
 
-data.formula <-  formula('left ~ .')
-attr_importance <- information.gain(data.formula, data.raw)
+n <- names(data.raw)
+data.raw.formula <- as.formula(paste("left ~", paste(n[!n %in% "left"], collapse = " + ")))
+attr_importance <- information.gain(data.raw.formula, data.raw)
 column_names <- names(data.raw)
 attr_names <- names(data.raw[, !(column_names %in% 'left')])
 barplot(
@@ -54,11 +55,18 @@ data_processing.plot_histogram_for_two_clases(data.in[['sales']],
                                               "Poziom sales",
                                               "Histogram sales")
 
-### Skalowanie i normalizacja
+### Skalowanie i normalizacja danych wejściowych
 data.in.norm <-
   as.data.frame(lapply(data.in,  function(x) {
     return ((x - min(x)) / (max(x) - min(x)))
   }))
+
+### Skalowanie i normalizacja wszystkich danych (potrzebne w niektórych modelach)
+data.norm <-
+  as.data.frame(lapply(data,  function(x) {
+    return ((x - min(x)) / (max(x) - min(x)))
+  }))
+
 
 
 ############################################
@@ -76,19 +84,22 @@ data.in.pca <-
          scale = FALSE,
          retx = TRUE)
 
+n <- colnames(data.in.pca$x)
+data.pca.formula <- as.formula(paste("left ~", paste(n[!n %in% "left"], collapse = " + ")))
+
 
 data_processing.plot_cumulative_pca(data.in.pca)
 
 data_processing.plot_biplot(data.in.pca, data.out)
 
-
+### TESTOWANIE MODELI UCZĄCYCH NA SUROWYCH DANYCH (bez obróbki PCA)
 # Przygotowanie danych treningowych
-splitSample <- sample(1:2, size=nrow(data.raw),prob=c(0.8,0.2), replace=TRUE)
+splitSample <- sample(1:2, size=nrow(data.raw),prob=c(0.7,0.3), replace=TRUE)
 data.train <- data.raw[splitSample==1,]
 data.test <- data.raw[splitSample==2,]
 
-
-tree_model <- rpart(formula = data.formula,  data = data.train)
+# Stworzenie modelu Drzewa
+tree_model <- rpart(formula = data.raw.formula,  data = data.train)
 
 rpart.plot(
   tree_model ,
@@ -111,6 +122,33 @@ confusion<-table(factor(prediction, levels=dataLevels),factor(data.test$left, le
 accuracy <- (confusion[1,1]+confusion[2,2])/nrow(data.test)
 error <- 1 - accuracy
 
+print(sprintf("Tree accuracy: %f",accuracy))
+
+
+
+# sieć neuronowa (MLP) - na danych znormalizowanych
+splitSample <- sample(1:2, size=nrow(data.norm),prob=c(0.7,0.3), replace=TRUE)
+data.norm.train <- data.norm[splitSample==1,]
+data.norm.test <- data.norm[splitSample==2,]
+
+
+nn_model <- neuralnet(formula = data.raw.formula, data=data.norm.train, hidden=c(18),linear.output=FALSE)
+# graficzne przedstawienie sieci neuronowej
+plot(nn_model)
+
+# predykcja
+prediction.raw <- compute(nn_model,data.norm.test[, !(column_names %in% 'left')])$net.result
+prediction <- round(prediction.raw)
+
+dataLevels <-min(data.norm.test$left):max(data.norm.test$left)
+confusion<-table(factor(prediction, levels=dataLevels),factor(data.norm.test$left, levels=dataLevels))
+accuracy <- (confusion[1,1]+confusion[2,2])/nrow(data.norm.test)
+error <- 1 - accuracy
+
+print(sprintf("Neural network accuracy: %f",accuracy))
+
+
+
 # inne modele
 
 #kmeans
@@ -121,7 +159,7 @@ ggplot(data, aes(satisfaction_level, salary, color = Groups)) + geom_point()
 # kknn
 kknn_model <-
   kknn(
-    formula = data.formula,
+    formula = data.raw.formula,
     train = data,
     test = data,
     k = 10,
@@ -130,18 +168,20 @@ kknn_model <-
   )
 
 # random forest
-random_forest_model <- randomForest(formula = data.formula,  data)
+random_forest_model <- randomForest(formula = data.raw.formula,  data)
 
+### PRAKTYCZNA REALIZACJA UCZENIA ALGORYTMU
 
+kFolds = 10;
 data.in.pca.train.folds.indexes <-  createFolds(data.out,
-                                                k = 10,
+                                                k = kFolds,
                                                 list = TRUE,
                                                 returnTrain = TRUE)
 
-
 threshold <- 0.5
+accuracy.summary=0;
 for (simple.train.fold.indexes in data.in.pca.train.folds.indexes) {
-  simple.train.fold.indexes <-data.in.pca.train.folds.indexes$Fold02
+ #simple.train.fold.indexes <-data.in.pca.train.folds.indexes$Fold02
     
   
     data.in.train <- as.data.frame(data.in.pca$x[simple.train.fold.indexes, ])
@@ -149,20 +189,19 @@ for (simple.train.fold.indexes in data.in.pca.train.folds.indexes) {
     data.out.train <- data.out[simple.train.fold.indexes]
     data.out.test <- data.out[-simple.train.fold.indexes]
   
-  #potrzebuje all w jednym data frame i dupa bo mam left w innym ....
+  #dodanie kolumny 
   data.in.train$left <- data.out.train
   
-  tree_model <- rpart(formula = data.formula,  data = data.in.train)
+  tree_model <- rpart(formula = data.pca.formula,  data = data.in.train)
   
   prediction <- round(predict(tree_model, newdata= data.in.test))
   dataLevels <-min(data.out.test):max(data.out.test)
   confusion <- table(factor(prediction, levels=dataLevels),factor(data.out.test, levels=dataLevels))
   accuracy <- (confusion[1,1]+confusion[2,2])/nrow(data.in.test)
+  print(accuracy)
+  accuracy.summary <- accuracy.summary+accuracy
   error <- 1 - accuracy
   
-  # tutaj dodać różne modele np.:
-  # model liniowy
-  # model kwadratowy
-  # model sieci neuronowej
 }
-
+accuracy.summary <- accuracy.summary/kFolds
+print(accuracy.summary)
