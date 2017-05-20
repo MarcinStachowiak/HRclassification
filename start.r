@@ -110,7 +110,7 @@ rpart.plot(
 )
 
 # predykcja
-prediction <- round(predict(tree_model, newdata=data.test[, !(column_names %in% 'left')],type ="vector"))
+prediction <- round(predict(tree_model, newdata=data.test[, !(column_names %in% 'left')]))
 
 # nie zawsze działa
 confusionMatrix(prediction, data.test$left)
@@ -124,8 +124,6 @@ error <- 1 - accuracy
 
 print(sprintf("Tree accuracy: %f",accuracy))
 
-
-
 # sieć neuronowa (MLP) - na danych znormalizowanych
 splitSample <- sample(1:2, size=nrow(data.norm),prob=c(0.7,0.3), replace=TRUE)
 data.norm.train <- data.norm[splitSample==1,]
@@ -137,7 +135,7 @@ nn_model <- neuralnet(formula = data.raw.formula, data=data.norm.train, hidden=c
 plot(nn_model)
 
 # predykcja
-prediction.raw <- compute(nn_model,data.norm.test[, !(column_names %in% 'left')])$net.result
+prediction.raw <- compute(nn_model, data.norm.test[, !(column_names %in% 'left')])$net.result
 prediction <- round(prediction.raw)
 
 dataLevels <-min(data.norm.test$left):max(data.norm.test$left)
@@ -160,15 +158,18 @@ ggplot(data, aes(satisfaction_level, salary, color = Groups)) + geom_point()
 kknn_model <-
   kknn(
     formula = data.raw.formula,
-    train = data,
-    test = data,
+    train = data.train,
+    test = data.test,
     k = 10,
     kernel = 'rectangular',
     distance = 1
   )
 
+# model liniowy 
+lm_model <- lm(formula = data.raw.formula, data = data.train)
+
 # random forest
-random_forest_model <- randomForest(formula = data.raw.formula,  data)
+random_forest_model <- randomForest(formula = data.raw.formula,  data.train)
 
 ### PRAKTYCZNA REALIZACJA UCZENIA ALGORYTMU
 
@@ -178,7 +179,6 @@ data.in.pca.train.folds.indexes <-  createFolds(data.out,
                                                 list = TRUE,
                                                 returnTrain = TRUE)
 
-threshold <- 0.5
 accuracy.summary=0;
 for (simple.train.fold.indexes in data.in.pca.train.folds.indexes) {
  #simple.train.fold.indexes <-data.in.pca.train.folds.indexes$Fold02
