@@ -10,3 +10,4 @@ kknn
 FSelector
 devtools
 neuralnet
+e1071
