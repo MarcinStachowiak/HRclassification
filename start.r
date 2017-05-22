@@ -1,12 +1,17 @@
-# ########## PLEASE DO NOT MODIFY# ########## #
-# Instalacja pakietow i zaladowanie lokalnych plikow *.R
-rm(list = ls())
-source("infra/instalAndLoadFiles.R")
-setupEnvironment()
-# ##################################################### #
-if (file.exists(getCustomProperty("target"))) {
-  unlink(getCustomProperty("target"), recursive = TRUE)
-}
+library(ggplot2)
+library(plyr)
+library(corrplot)
+library(digest)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(kknn)
+library(FSelector)
+library(neuralnet)
+library(e1071)
+library(ggbiplot)
+
 
 ############################################
 # Załadowanie danych z pliku
@@ -23,7 +28,6 @@ summary(data.raw)
 
 
 # analiza wplywu cech
-
 n <- names(data.raw)
 data.raw.formula <- as.formula(paste("left ~", paste(n[!n %in% "left"], collapse = " + ")))
 attr_importance <- information.gain(data.raw.formula, data.raw)
@@ -40,20 +44,26 @@ barplot(
 
 ############################################
 # Transformacja wartości nienumerycznych na numeryczne
-data <-
-  transform(data.raw, sales = as.numeric(sales), salary = as.numeric(salary))
+data <- transform(data.raw, sales = as.numeric(sales), salary = as.numeric(salary))
 
 ### Rozdzielenie na dane wejściowe (cechy) i wyjściowe
 column_names <- names(data)
 data.in <- data[, !(column_names %in% 'left')]
 data.out <- data[, column_names %in% 'left']
 
-data_processing.plot_histogram_for_two_clases(data.in[['sales']],
-                                              data.out,
-                                              1,
-                                              "Liczba wystąpień",
-                                              "Poziom sales",
-                                              "Histogram sales")
+# Rysowanie histogramu dla konkretnej cechy i dwóch klas
+df <- data.frame(
+  data_output=factor(data.out), 
+  data_input=data.in[['sales']]
+)
+mu <- ddply(df, "data_output", summarise, grp.mean=mean(data_input))
+ggplot(
+  df, 
+  aes(x=data_input,fill=data_output,color=data_output)) + 
+  geom_histogram(binwidth =2,alpha=0.5,position="identity") +
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=data_output),linetype="dashed", size=1,show.legend = F) + 
+  labs(title="Histogram sales",x="Poziom sales", y = "Liczba wystąpień") +
+  theme(plot.title = element_text(hjust = 0.5))
 
 ### Skalowanie i normalizacja danych wejściowych
 data.in.norm <-
@@ -72,7 +82,15 @@ data.norm <-
 ############################################
 ### Sprawdzenie korelację pomiędzy cechami
 data.in.corr <- cor(data.in.norm)
-data_processing.plot_correlation(data.in.corr)
+col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+
+# Rysowanie wykresu korelacji
+p <- corrplot(data.in.corr, method="color", col=col(200),  
+              type="upper", order="hclust", 
+              addCoef.col = "black", # Add coefficient of correlation
+              tl.col="black", tl.srt=45, #Text label color and rotationcorrplot
+              diag=T)
+
 
 
 
@@ -87,10 +105,28 @@ data.in.pca <-
 n <- colnames(data.in.pca$x)
 data.pca.formula <- as.formula(paste("left ~", paste(n[!n %in% "left"], collapse = " + ")))
 
+# Rysowanie wykresu kumulatywnej proporcji wyjaśnienia wariancji cech
+data.in.pca.sdev <- data.in.pca$sdev
+data.in.pca.stddev <- data.in.pca.sdev^2
+data.in.pca.stddev.prop <- data.in.pca.stddev/sum(data.in.pca.stddev)
 
-data_processing.plot_cumulative_pca(data.in.pca)
+df <- data.frame(data_y=cumsum(data.in.pca.stddev.prop),
+                 data_x=colnames(data.in.pca$rotation))
 
-data_processing.plot_biplot(data.in.pca, data.out)
+ggplot(df, aes(data_x,data_y,group=1))+
+  geom_line(colour="red") + 
+  geom_point(size=3, fill="white")+
+  ylim(0,1)+
+  geom_text(size = 3, position = position_stack(vjust =0.97),label=round(cumsum(data.in.pca.stddev.prop),digits=2))+
+  labs(title='Kumulatywna proporcja wyjasnianej wariancji cech wejściowych przez niezalezne komponenty',x='Niezalezne komponenty', y = 'Kumulatywna proporcja wyjasnionej wariancji')
+
+
+# Narysowanie wykresu typu biplot dla cech wejściowch i zbudowanych na ich podstawie niezaleznych komponentów
+ggbiplot(data.in.pca , obs.scale = 1, var.scale = 1, 
+         groups = data.out, ellipse = TRUE, 
+         circle = TRUE) +
+  scale_color_continuous(name = '') + 
+  theme(legend.direction = 'horizontal', legend.position = 'top')
 
 ### TESTOWANIE MODELI UCZĄCYCH NA SUROWYCH DANYCH (bez obróbki PCA)
 # Przygotowanie danych treningowych
@@ -121,16 +157,15 @@ confusion<-table(factor(prediction, levels=dataLevels),factor(data.test$left, le
 
 accuracy <- (confusion[1,1]+confusion[2,2])/nrow(data.test)
 error <- 1 - accuracy
-
 print(sprintf("Tree accuracy: %f",accuracy))
+
 
 # sieć neuronowa (MLP) - na danych znormalizowanych
 splitSample <- sample(1:2, size=nrow(data.norm),prob=c(0.7,0.3), replace=TRUE)
 data.norm.train <- data.norm[splitSample==1,]
 data.norm.test <- data.norm[splitSample==2,]
 
-
-nn_model <- neuralnet(formula = data.raw.formula, data=data.norm.train, hidden=c(6),linear.output=FALSE)
+nn_model <- neuralnet(formula = data.raw.formula, data=data.norm.train, hidden=c(8),linear.output=FALSE)
 # graficzne przedstawienie sieci neuronowej
 plot(nn_model)
 
@@ -146,13 +181,11 @@ error <- 1 - accuracy
 print(sprintf("Neural network accuracy: %f",accuracy))
 
 
-
-# inne modele
-
+#### inne modele
 #kmeans
-klasters <- kmeans(x = data, centers = 2)
-Groups <- as.factor(klasters$cluster)
-ggplot(data, aes(satisfaction_level, salary, color = Groups)) + geom_point()
+klasters <- kmeans(x = data.in[,1:2], centers = 2)
+klasters.groups <- as.factor(klasters$cluster)
+ggplot(data.in, aes(satisfaction_level, last_evaluation, color = klasters.groups)) + geom_point()
 
 # kknn
 kknn_model <-
@@ -181,9 +214,6 @@ data.in.pca.train.folds.indexes <-  createFolds(data.out,
 
 accuracy.summary=0;
 for (simple.train.fold.indexes in data.in.pca.train.folds.indexes) {
- #simple.train.fold.indexes <-data.in.pca.train.folds.indexes$Fold02
-    
-  
     data.in.train <- as.data.frame(data.in.pca$x[simple.train.fold.indexes, ])
     data.in.test <- as.data.frame(data.in.pca$x[-simple.train.fold.indexes, ])
     data.out.train <- data.out[simple.train.fold.indexes]
@@ -191,12 +221,15 @@ for (simple.train.fold.indexes in data.in.pca.train.folds.indexes) {
   
   #dodanie kolumny 
   data.in.train$left <- data.out.train
-  
+  # zbudowanie modelu
   tree_model <- rpart(formula = data.pca.formula,  data = data.in.train)
-  
+  # predykcja
   prediction <- round(predict(tree_model, newdata= data.in.test))
+  
+  # obliczenie confusionMatrix
   dataLevels <-min(data.out.test):max(data.out.test)
   confusion <- table(factor(prediction, levels=dataLevels),factor(data.out.test, levels=dataLevels))
+  # wyznaczenie skuteczności klasyfikacji
   accuracy <- (confusion[1,1]+confusion[2,2])/nrow(data.in.test)
   print(accuracy)
   accuracy.summary <- accuracy.summary+accuracy
