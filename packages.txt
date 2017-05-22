@@ -6,7 +6,8 @@ caret
 rpart
 rpart.plot
 randomForest
-kknn
+class
+gmodels
 FSelector
 devtools
 neuralnet

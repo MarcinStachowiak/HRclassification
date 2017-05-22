@@ -187,19 +187,28 @@ klasters <- kmeans(x = data.in[,1:2], centers = 2)
 klasters.groups <- as.factor(klasters$cluster)
 ggplot(data.in, aes(satisfaction_level, last_evaluation, color = klasters.groups)) + geom_point()
 
+
 # kknn
-kknn_model <-
-  kknn(
-    formula = data.raw.formula,
-    train = data.train,
-    test = data.test,
-    k = 10,
-    kernel = 'rectangular',
-    distance = 1
+knn_model <-
+  knn(
+    cl = data.out[splitSample==1],
+    train = data.in.pca$x[splitSample==1, ],
+    test = data.in.pca$x[splitSample==2, ],
+    k = 1
   )
+
+CrossTable(x=data.out[splitSample==2], y=knn_model, prop.chisq = FALSE, prop.t=FALSE, prop.c=FALSE, prop.r=FALSE)
 
 # model liniowy 
 lm_model <- lm(formula = data.raw.formula, data = data.train)
+
+plot_data_predicted <- data.frame(x=1:nrow(data.test), y=as.data.frame(prediction)[[1]])
+plot_data_predicted$c <- plot_data_predicted$x * plot_data_predicted$y
+plot_data_real <- data.frame(x=1:nrow(data.test),y=data.test$left)
+plot_data_real$c <- plot_data_real$x * plot_data_real$y
+
+ggplot(plot_data_predicted, aes(x=plot_data_predicted$c,y=plot_data_real$c))+
+  geom_point(shape=1, colour = "blue")
 
 # random forest
 random_forest_model <- randomForest(formula = data.raw.formula,  data.train)
