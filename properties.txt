@@ -1,3 +1,0 @@
-target=target
-baseRDirPath=R
-loggingToFile=true

@@ -22,8 +22,11 @@ if (!is.element('rpart.plot', installed.packages()[, 1])) {
 if (!is.element('randomForest', installed.packages()[, 1])) {
   install.packages('randomForest', repos = "http://cran.rstudio.com/")
 }
-if (!is.element('kknn', installed.packages()[, 1])) {
-  install.packages('kknn', repos = "http://cran.rstudio.com/")
+if (!is.element('class', installed.packages()[, 1])) {
+  install.packages('class', repos = "http://cran.rstudio.com/")
+}
+if (!is.element('gmodels', installed.packages()[, 1])) {
+  install.packages('gmodels', repos = "http://cran.rstudio.com/")
 }
 if (!is.element('FSelector', installed.packages()[, 1])) {
   install.packages('FSelector', repos = "http://cran.rstudio.com/")
