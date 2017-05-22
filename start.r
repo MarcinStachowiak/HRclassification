@@ -44,7 +44,7 @@ barplot(
 
 
 ############################################
-# Transformacja wartości nienumerycznych na numeryczne
+# Transformacja wartości nienumerycznych na numerycznea
 data <- transform(data.raw, sales = as.numeric(sales), salary = as.numeric(salary))
 
 ### Rozdzielenie na dane wejściowe (cechy) i wyjściowe
@@ -132,18 +132,18 @@ ggbiplot(data.in.pca , obs.scale = 1, var.scale = 1,
 ### TESTOWANIE MODELI UCZĄCYCH NA SUROWYCH DANYCH (bez obróbki PCA)
 # Przygotowanie danych treningowych
 splitSample <- sample(1:2, size=nrow(data.raw),prob=c(0.7,0.3), replace=TRUE)
-data.train <- data.raw[splitSample==1,]
-data.test <- data.raw[splitSample==2,]
+data.train <- data[splitSample==1,]
+data.test <- data[splitSample==2,]
 
 # Stworzenie modelu Drzewa
-tree_model <- rpart(formula = data.raw.formula,  data = data.train)
-
+tree_model <- rpart(formula = data.raw.formula,  data = data.train, cp=0.02)
 rpart.plot(
   tree_model ,
   box.palette = "GnBu",
   branch.lty = 3,
   shadow.col = "gray",
-  nn = TRUE
+  nn = TRUE,type = 2,
+  prefix="left "
 )
 
 # predykcja
@@ -151,6 +151,9 @@ prediction <- round(predict(tree_model, newdata=data.test[, !(column_names %in% 
 
 # nie zawsze działa
 confusionMatrix(prediction, data.test$left)
+
+# prosta macierz
+CrossTable(x=data.test$left, y=prediction, prop.chisq = FALSE, prop.t=FALSE, prop.c=FALSE, prop.r=FALSE)
 
 # ale za to można zrobić macierz manualnie
 dataLevels <-min(data.test$left):max(data.test$left)
