@@ -1,22 +1,4 @@
 ########################################################
-# WCZYTYWANIE BIBLIOTEK
-########################################################
-library(ggplot2)
-library(plyr)
-library(corrplot)
-library(digest)
-library(caret)
-library(rpart)
-library(rpart.plot)
-library(randomForest)
-library(class)
-library(gmodels)
-library(FSelector)
-library(neuralnet)
-library(e1071)
-library(ggbiplot)
-
-########################################################
 # ZAŁADOWANIE DANYCH Z PLIKU
 ########################################################
 data.raw <- read.csv(file.path("data", "data_cancer.csv"), sep = ",", header = TRUE)
@@ -50,6 +32,8 @@ data.raw.formula <- as.formula(paste("diagnosis ~", paste(names(data.raw[2:31]),
 ########################################################
 # ANALIZA WPŁYWU CECH
 ########################################################
+library(FSelector)
+#####
 par(mfrow=c(1,1))
 attr_importance <- information.gain(data.raw.formula, data.raw)
 attr_names <- row.names(attr_importance)
@@ -83,8 +67,10 @@ data.in.corr <- cor(data.in.norm[2:31])
 ########################################################
 # RYSOWANIE WYKRESU KORELACJI
 ########################################################
+library(corrplot)
+#########
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
-p <- corrplot(data.in.corr, method="color", col=col(200),  
+corrplot(data.in.corr, method="color", col=col(200),  
               type="upper", order="hclust", 
               addCoef.col = "black",
               tl.col="black",
@@ -100,6 +86,8 @@ data.pca.formula <- as.formula(paste("diagnosis ~", paste(colnames(data.in.pca.d
 ########################################################
 #RYSOWANIE WYKRESU KUMULATYWNEJ PROPORCJI WYJAŚNIENIA WARIANCJI CECH
 ########################################################
+library(ggplot2)
+#######
 data.in.pca.sdev <- data.in.pca$sdev
 data.in.pca.stddev <- data.in.pca.sdev^2
 data.in.pca.stddev.prop <- data.in.pca.stddev/sum(data.in.pca.stddev)
@@ -116,6 +104,8 @@ ggplot(df, aes(data_x, data_y, group=1))+
 ########################################################
 # NARYSOWANIE WYKRESU BIPLOT
 ########################################################
+library(ggbiplot)
+#######
 ggbiplot(data.in.pca , obs.scale = 1, var.scale = 1, 
          groups = data.in[,10], ellipse = TRUE, 
          circle = TRUE) +
@@ -145,6 +135,8 @@ predictMe <- function(modelName, formula, data, testData, trControl, tuneGridPar
 ########################################################
 # PRZYGOTOWANIE DANYCH TESTOWYCH I TRENINGOWYCH A TAKŻE KFOLDA
 ########################################################
+library(caret)
+#######
 splitSample <- sample(1:2, size=nrow(data.in.norm), prob=c(0.7,0.3), replace=TRUE)
 data.norm.train <- data.in.norm[splitSample==1,]
 data.norm.test <- data.in.norm[splitSample==2,]
@@ -155,6 +147,8 @@ TC <- trainControl(method = "cv", number = 12, returnData=FALSE, returnResamp="n
 ########################################################
 # nnet
 ########################################################
+library(NeuralNetTools)
+##########
 nnet_prediction <- predictMe("nnet", data.raw.formula, data.norm.train, data.norm.test, TC, expand.grid(.size=5,.decay=0.8))
 plotnet(nnet_prediction$model, node_labs = TRUE, var_labs = TRUE)
 ########################################################

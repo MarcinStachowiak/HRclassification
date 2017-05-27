@@ -1,22 +1,4 @@
 ########################################################
-# WCZYTYWANIE BIBLIOTEK
-########################################################
-library(ggplot2)
-library(plyr)
-library(corrplot)
-library(digest)
-library(caret)
-library(rpart)
-library(rpart.plot)
-library(randomForest)
-library(class)
-library(gmodels)
-library(FSelector)
-library(neuralnet)
-library(e1071)
-library(ggbiplot)
-
-########################################################
 # ZAŁADOWANIE DANYCH Z PLIKU
 ########################################################
 data.raw <- read.csv(file.path("data", "HR_comma_sep.csv"), sep = ",", header = TRUE)
@@ -37,9 +19,9 @@ data.raw = data.raw[c(1:6,8:10,7)]
 # RYSOWANIE HISTOGRAMU DLA WYBRANEJ CECHY Z PODZIAŁEM NA KLASY
 ########################################################
 par(mfrow=c(2,1))
-n <- 2 # numer cechy
-hist(data.raw[data.raw$left==0, n],main = paste("Rozkład ", names(data.raw)[n]), ylab = "Wystąpień", xlab="Wartość cechy")  #  histogram pierwszej cechy
-hist(data.raw[data.raw$left==1, n],main = paste("Rozkład ", names(data.raw)[n]), ylab = "Wystąpień", xlab="Wartość cechy")  #  histogram drugiej cechy
+n <- 1 # numer cechy
+hist(data.raw[data.raw$left==0, n],main = paste("Rozkład ", names(data.raw)[n], "dla osób które zostały"), ylab = "Wystąpień", xlab="Wartość cechy")  #  histogram pierwszej cechy
+hist(data.raw[data.raw$left==1, n],main = paste("Rozkład ", names(data.raw)[n], "dla osób które odeszły"), ylab = "Wystąpień", xlab="Wartość cechy")  #  histogram drugiej cechy
 
 ########################################################
 # FORMUŁA
@@ -49,6 +31,8 @@ data.raw.formula <- as.formula(paste("left ~", paste(names(data.raw[1:9]), colla
 ########################################################
 # ANALIZA WPŁYWU CECH
 ########################################################
+library(FSelector)
+#####
 par(mfrow=c(1,1))
 attr_importance <- information.gain(data.raw.formula, data.raw)
 attr_names <- row.names(attr_importance)
@@ -81,6 +65,8 @@ data.in.corr <- cor(data.in.norm[1:9])
 ########################################################
 # RYSOWANIE WYKRESU KORELACJI
 ########################################################
+library(corrplot)
+#########
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
 p <- corrplot(data.in.corr, method="color", col=col(200),  
               type="upper", order="hclust", 
@@ -98,6 +84,8 @@ data.pca.formula <- as.formula(paste("left ~", paste(colnames(data.in.pca.data[,
 ########################################################
 #RYSOWANIE WYKRESU KUMULATYWNEJ PROPORCJI WYJAŚNIENIA WARIANCJI CECH
 ########################################################
+library(ggplot2)
+#######
 data.in.pca.sdev <- data.in.pca$sdev
 data.in.pca.stddev <- data.in.pca.sdev^2
 data.in.pca.stddev.prop <- data.in.pca.stddev/sum(data.in.pca.stddev)
@@ -114,6 +102,8 @@ ggplot(df, aes(data_x, data_y, group=1))+
 ########################################################
 # NARYSOWANIE WYKRESU BIPLOT
 ########################################################
+library(ggbiplot)
+#######
 ggbiplot(data.in.pca , obs.scale = 1, var.scale = 1, 
          groups = data.in[,10], ellipse = TRUE, 
          circle = TRUE) +
@@ -138,6 +128,8 @@ predictMe <- function(modelName, formula, data, testData, trControl){
 ########################################################
 # PRZYGOTOWANIE DANYCH TESTOWYCH I TRENINGOWYCH A TAKŻE KFOLDA
 ########################################################
+library(caret)
+#######
 splitSample <- sample(1:2, size=nrow(data.in.norm), prob=c(0.7,0.3), replace=TRUE)
 data.norm.train <- data.in.norm[splitSample==1,]
 data.norm.test <- data.in.norm[splitSample==2,]
@@ -148,6 +140,8 @@ TC <- trainControl(method = "cv", number = 12, returnData=FALSE, returnResamp="n
 ########################################################
 # nnet
 ########################################################
+library(NeuralNetTools)
+##########
 nnet_prediction <- predictMe("nnet", data.raw.formula, data.norm.train, data.norm.test, TC)
 plotnet(nnet_prediction$model, node_labs = TRUE, var_labs = TRUE)
 ########################################################
