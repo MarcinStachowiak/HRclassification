@@ -19,7 +19,7 @@ library(ggbiplot)
 ########################################################
 # ZAŁADOWANIE DANYCH Z PLIKU
 ########################################################
-data.raw <- read.csv(file.path("data", "HR_comma_sep.csv"), sep = ",", header = TRUE)
+data.raw <- read.csv(file.path("data", "data_cancer.csv"), sep = ",", header = TRUE)
 
 ########################################################
 # ANALIZA DANYCH
@@ -31,27 +31,21 @@ summary(data.raw) # podsumowanie kolumn
 ########################################################
 # ZMIANA KOLEJNOŚCI KOLUMN
 ########################################################
-data.raw = data.raw[c(1:6,8:10,7)]
-
-########################################################
-# RONDZIELENIE NA DANE (CECHY) WEJŚCIOWE I WYJŚCIOWE
-########################################################
-#column_names <- names(data.raw)
-#data.in <- data.raw[, !(column_names %in% 'left')]
-#data.out <- data.raw[, column_names %in% 'left']
+data.raw = data.raw[c(1,3:32,2)]
 
 ########################################################
 # RYSOWANIE HISTOGRAMU DLA WYBRANEJ CECHY Z PODZIAŁEM NA KLASY
 ########################################################
 par(mfrow=c(2,1))
 n <- 2 # numer cechy
-hist(data.raw[data.raw$left==0, n],main = paste("Rozkład ", names(data.raw)[n]), ylab = "Wystąpień", xlab="Wartość cechy")  #  histogram pierwszej cechy
-hist(data.raw[data.raw$left==1, n],main = paste("Rozkład ", names(data.raw)[n]), ylab = "Wystąpień", xlab="Wartość cechy")  #  histogram drugiej cechy
+hist(data.raw[data.raw$diagnosis=="B", n],main = paste("Rozkład ", names(data.raw)[n]), ylab = "Wystąpień", xlab="Wartość cechy")  #  histogram pierwszej cechy
+hist(data.raw[data.raw$diagnosis=="M", n],main = paste("Rozkład ", names(data.raw)[n]), ylab = "Wystąpień", xlab="Wartość cechy")  #  histogram drugiej cechy
 
 ########################################################
 # FORMUŁA
 ########################################################
-data.raw.formula <- as.formula(paste("left ~", paste(names(data.raw[1:9]), collapse = " + ")))
+# pierwsza kolumna ma id a więc ignorujemy
+data.raw.formula <- as.formula(paste("diagnosis ~", paste(names(data.raw[2:31]), collapse = " + ")))
 
 ########################################################
 # ANALIZA WPŁYWU CECH
@@ -70,7 +64,8 @@ barplot(
 ########################################################
 # TRANSFORMACJA WARTOŚCI NIENUMERWYCZNYCH NA NUMERYCZNE
 ########################################################
-data.in <- transform(data.raw, sales = as.numeric(sales), salary = as.numeric(salary))
+#brak wartości nienumerycznych dla zbioru  data_cancer.scv
+data.in <- transform(data.raw, diagnosis = as.numeric(diagnosis))
 
 ########################################################
 # SKALOWANIE I NORMALIZACJA CECH WEJŚCIOWYCH
@@ -80,16 +75,10 @@ data.in.norm <-
     return ((x - min(x)) / (max(x) - min(x)))
   }))
 
-### Skalowanie i normalizacja wszystkich danych (potrzebne w niektórych modelach)
-#data.norm <-
-#  as.data.frame(lapply(data,  function(x) {
-#    return ((x - min(x)) / (max(x) - min(x)))
-#  }))
-
 ########################################################
 # BADANIE KORELACJI POMĘDZY CECHAMI
 ########################################################
-data.in.corr <- cor(data.in.norm[1:9])
+data.in.corr <- cor(data.in.norm[2:31])
 
 ########################################################
 # RYSOWANIE WYKRESU KORELACJI
@@ -105,9 +94,9 @@ p <- corrplot(data.in.corr, method="color", col=col(200),
 ########################################################
 # ANALIZA SKŁADOWYCH NIEZALEŻNYCH
 ########################################################
-data.in.pca <- prcomp(data.in.norm[1:9], center = FALSE, scale = FALSE, retx = TRUE)
-data.pca.formula <- as.formula(paste("left ~", paste(colnames(data.in.pca$x), collapse = " + ")))
-
+data.in.pca <- prcomp(data.in.norm[2:31], center = FALSE, scale = FALSE, retx = TRUE)
+data.in.pca.data <- data.frame(cbind(data.in.pca$x, left = data.in.norm$diagnosis))
+data.pca.formula <- as.formula(paste("diagnosis ~", paste(colnames(data.in.pca.data[,2:31]), collapse = " + ")))
 ########################################################
 #RYSOWANIE WYKRESU KUMULATYWNEJ PROPORCJI WYJAŚNIENIA WARIANCJI CECH
 ########################################################
@@ -140,7 +129,7 @@ ggbiplot(data.in.pca , obs.scale = 1, var.scale = 1,
 predictMe <- function(modelName, formula, data, testData, trControl){
   model <- train(formula, method=modelName, data=data, trControl= TC)
   predictCrossVal <- predict(model, testData)
-  conf <- confusionMatrix(testData$left, predictCrossVal)
+  conf <- confusionMatrix(testData$diagnosis, predictCrossVal)
   print(paste(modelName, sprintf(" accuracy: %f", conf$overall["Accuracy"])))
   list(model=model,
        prediction=predictCrossVal,
@@ -155,7 +144,7 @@ splitSample <- sample(1:2, size=nrow(data.in.norm), prob=c(0.7,0.3), replace=TRU
 data.norm.train <- data.in.norm[splitSample==1,]
 data.norm.test <- data.in.norm[splitSample==2,]
 
-data.norm.train$left<-as.factor(data.norm.train$left)
+data.norm.train$diagnosis<-as.factor(data.norm.train$diagnosis)
 TC <- trainControl(method = "cv", number = 12, returnData=FALSE, returnResamp="none", savePredictions=FALSE, verboseIter=FALSE , preProcOptions="pca", allowParallel=TRUE)
 
 ########################################################
