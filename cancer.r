@@ -126,8 +126,13 @@ ggbiplot(data.in.pca , obs.scale = 1, var.scale = 1,
 ########################################################
 # METODA POMOCNICZA
 ########################################################
-predictMe <- function(modelName, formula, data, testData, trControl){
-  model <- train(formula, method=modelName, data=data, trControl= TC)
+predictMe <- function(modelName, formula, data, testData, trControl, tuneGridParam = NULL){
+  if (!is.null(tuneGridParam)){
+    model <- train(formula, method=modelName, data=data, trControl= TC, tuneGrid=tuneGridParam)
+  }else{
+    model <- train(formula, method=modelName, data=data, trControl= TC)
+  }
+    
   predictCrossVal <- predict(model, testData)
   conf <- confusionMatrix(testData$diagnosis, predictCrossVal)
   print(paste(modelName, sprintf(" accuracy: %f", conf$overall["Accuracy"])))
@@ -150,7 +155,7 @@ TC <- trainControl(method = "cv", number = 12, returnData=FALSE, returnResamp="n
 ########################################################
 # nnet
 ########################################################
-nnet_prediction <- predictMe("nnet", data.raw.formula, data.norm.train, data.norm.test, TC)
+nnet_prediction <- predictMe("nnet", data.raw.formula, data.norm.train, data.norm.test, TC, expand.grid(.size=5,.decay=0.8))
 plotnet(nnet_prediction$model, node_labs = TRUE, var_labs = TRUE)
 ########################################################
 # bayesglm
