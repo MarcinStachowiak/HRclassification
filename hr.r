@@ -191,15 +191,17 @@ svmRadial_prediction <- predictMe("svmRadial", data.raw.formula, data.norm.train
 ########################################################
 treebag_prediction <- predictMe("treebag", data.raw.formula, data.norm.train, data.norm.test, TC)
 
-trainMethods <- c("Bayesian GLM", "Generalized Boosted Regression",
-                  "K Nearest Neighbor",
-                  "Naive Bayes",
-                  "Neural Net",
-                  "Random Forest",
-                  "Recursive Partitioning and Regression Trees",
-                  "Support Vector Machines Linear",
-                  "Support Vector Machines Radial",
-                  "Bagged Classification and Regression Trees")
+trainMethods <- c(
+  "Neural Net",
+  "Bayesian GLM", 
+  "Generalized Boosted Regression",
+  "K Nearest Neighbor",
+  "Naive Bayes",
+  "Random Forest",
+  "Recursive Partitioning and Regression Trees",
+  "Support Vector Machines Linear",
+  "Support Vector Machines Radial",
+  "Bagged Classification and Regression Trees")
 accuracy <- c(nnet_prediction$overall["Accuracy"], 
               bayesglm_prediction$overall["Accuracy"],  
               gbm_prediction$overall["Accuracy"], 
