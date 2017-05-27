@@ -1,3 +1,6 @@
+########################################################
+# WCZYTYWANIE BIBLIOTEK
+########################################################
 library(ggplot2)
 library(plyr)
 library(corrplot)
@@ -14,21 +17,47 @@ library(e1071)
 library(ggbiplot)
 
 
-############################################
-# Załadowanie danych z pliku
+########################################################
+# ZAŁADOWANIE DANYCH Z PLIKU
+########################################################
 data.raw <- read.csv(file.path("data", "HR_comma_sep.csv"),
                      sep = ",",
                      header = TRUE)
 
 
-############################################
-# Analiza danych
+########################################################
+# ANALIZA DANYCH
+########################################################
 str(data.raw)
 print(data.raw)
 summary(data.raw)
 
+########################################################
+# RONDZIELENIE NA DANE (CECHY) WEJŚCIOWE I WYJŚCIOWE
+########################################################
+column_names <- names(data)
+data.in <- data[, !(column_names %in% 'left')]
+data.out <- data[, column_names %in% 'left']
 
-# analiza wplywu cech
+########################################################
+# RYSOWANIE HISTOGRAMU DLA WYBRANEJ CECHY Z PODZIAŁEM NA KLASY
+########################################################
+df <- data.frame(
+  data_output=factor(data.out), 
+  data_input=data.in[['sales']]
+)
+mu <- ddply(df, "data_output", summarise, grp.mean=mean(data_input))
+ggplot(
+  df, 
+  aes(x=data_input,fill=data_output,color=data_output)) + 
+  geom_histogram(binwidth =2,alpha=0.5,position="identity") +
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=data_output),linetype="dashed", size=1,show.legend = F) + 
+  labs(title="Histogram sales",x="Poziom sales", y = "Liczba wystąpień") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+########################################################
+# ANALIZA WPŁYWU CECH
+########################################################
 n <- names(data.raw)
 data.raw.formula <- as.formula(paste("left ~", paste(n[!n %in% "left"], collapse = " + ")))
 attr_importance <- information.gain(data.raw.formula, data.raw)
@@ -43,30 +72,15 @@ barplot(
 )
 
 
-############################################
-# Transformacja wartości nienumerycznych na numerycznea
+########################################################
+# TRANSFORMACJA WARTOŚCI NIENUMERWYCZNYCH NA NUMERYCZNE
+########################################################
 data <- transform(data.raw, sales = as.numeric(sales), salary = as.numeric(salary))
 
-### Rozdzielenie na dane wejściowe (cechy) i wyjściowe
-column_names <- names(data)
-data.in <- data[, !(column_names %in% 'left')]
-data.out <- data[, column_names %in% 'left']
 
-# Rysowanie histogramu dla konkretnej cechy i dwóch klas
-df <- data.frame(
-  data_output=factor(data.out), 
-  data_input=data.in[['sales']]
-)
-mu <- ddply(df, "data_output", summarise, grp.mean=mean(data_input))
-ggplot(
-  df, 
-  aes(x=data_input,fill=data_output,color=data_output)) + 
-  geom_histogram(binwidth =2,alpha=0.5,position="identity") +
-  geom_vline(data=mu, aes(xintercept=grp.mean, color=data_output),linetype="dashed", size=1,show.legend = F) + 
-  labs(title="Histogram sales",x="Poziom sales", y = "Liczba wystąpień") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-### Skalowanie i normalizacja danych wejściowych
+########################################################
+# SKALOWANIE I NORMALIZACJA CECH WEJŚCIOWYCH
+########################################################
 data.in.norm <-
   as.data.frame(lapply(data.in,  function(x) {
     return ((x - min(x)) / (max(x) - min(x)))
@@ -80,12 +94,15 @@ data.norm <-
 
 
 
-############################################
-### Sprawdzenie korelację pomiędzy cechami
+########################################################
+# BADANIE KORELACJI POMĘDZY CECHAMI
+########################################################
 data.in.corr <- cor(data.in.norm)
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
 
-# Rysowanie wykresu korelacji
+########################################################
+# RYSOWANIE WYKRESU KORELACJI
+########################################################
 p <- corrplot(data.in.corr, method="color", col=col(200),  
               type="upper", order="hclust", 
               addCoef.col = "black", # Add coefficient of correlation
@@ -95,8 +112,9 @@ p <- corrplot(data.in.corr, method="color", col=col(200),
 
 
 
-############################################
-### Analiza PCA (Analiza składowych niezależnych)
+########################################################
+# ANALIZA SKŁADOWYCH NIEZALEŻNYCH
+########################################################
 data.in.pca <-
   prcomp(data.in.norm,
          center = FALSE,
@@ -106,7 +124,9 @@ data.in.pca <-
 n <- colnames(data.in.pca$x)
 data.pca.formula <- as.formula(paste("left ~", paste(n[!n %in% "left"], collapse = " + ")))
 
-# Rysowanie wykresu kumulatywnej proporcji wyjaśnienia wariancji cech
+########################################################
+#RYSOWANIE WYKRESU KUMULATYWNEJ PROPORCJI WYJAŚNIENIA WARIANCJI CECH
+########################################################
 data.in.pca.sdev <- data.in.pca$sdev
 data.in.pca.stddev <- data.in.pca.sdev^2
 data.in.pca.stddev.prop <- data.in.pca.stddev/sum(data.in.pca.stddev)
@@ -122,28 +142,33 @@ ggplot(df, aes(data_x,data_y,group=1))+
   labs(title='Kumulatywna proporcja wyjasnianej wariancji cech wejściowych przez niezalezne komponenty',x='Niezalezne komponenty', y = 'Kumulatywna proporcja wyjasnionej wariancji')
 
 
-# Narysowanie wykresu typu biplot dla cech wejściowch i zbudowanych na ich podstawie niezaleznych komponentów
+########################################################
+# NARYSOWANIE WYKRESU BIPLOT
+########################################################
 ggbiplot(data.in.pca , obs.scale = 1, var.scale = 1, 
          groups = data.out, ellipse = TRUE, 
          circle = TRUE) +
   scale_color_continuous(name = '') + 
   theme(legend.direction = 'horizontal', legend.position = 'top')
 
-### TESTOWANIE MODELI UCZĄCYCH NA SUROWYCH DANYCH (bez obróbki PCA)
+########################################################
+# TESTOWANIE MODELI UCZĄCYCH NA SUROWYCH DANYCH (bez PCA)
+
+# DRZEWA DECYZYJNE
+########################################################
 # Przygotowanie danych treningowych
 splitSample <- sample(1:2, size=nrow(data.raw),prob=c(0.7,0.3), replace=TRUE)
-data.train <- data[splitSample==1,]
-data.test <- data[splitSample==2,]
+data.train <- data.raw[splitSample==1,]
+data.test <- data.raw[splitSample==2,]
 
 # Stworzenie modelu Drzewa
-tree_model <- rpart(formula = data.raw.formula,  data = data.train, cp=0.02)
+tree_model <- rpart(formula = data.raw.formula,  data = data.train)
 rpart.plot(
   tree_model ,
   box.palette = "GnBu",
   branch.lty = 3,
   shadow.col = "gray",
-  nn = TRUE,type = 2,
-  prefix="left "
+  nn = TRUE
 )
 
 # predykcja
@@ -151,9 +176,6 @@ prediction <- round(predict(tree_model, newdata=data.test[, !(column_names %in% 
 
 # nie zawsze działa
 confusionMatrix(prediction, data.test$left)
-
-# prosta macierz
-CrossTable(x=data.test$left, y=prediction, prop.chisq = FALSE, prop.t=FALSE, prop.c=FALSE, prop.r=FALSE)
 
 # ale za to można zrobić macierz manualnie
 dataLevels <-min(data.test$left):max(data.test$left)
@@ -164,12 +186,14 @@ error <- 1 - accuracy
 print(sprintf("Tree accuracy: %f",accuracy))
 
 
-# sieć neuronowa (MLP) - na danych znormalizowanych
+########################################################
+# SIEĆ NEURONOWAE
+########################################################
 splitSample <- sample(1:2, size=nrow(data.norm),prob=c(0.7,0.3), replace=TRUE)
 data.norm.train <- data.norm[splitSample==1,]
 data.norm.test <- data.norm[splitSample==2,]
 
-nn_model <- neuralnet(formula = data.raw.formula, data=data.norm.train, hidden=c(8),linear.output=FALSE)
+nn_model <- neuralnet(formula = data.raw.formula, data=data.norm.train, hidden=c(6,3),linear.output=FALSE)
 # graficzne przedstawienie sieci neuronowej
 plot(nn_model)
 
@@ -185,14 +209,17 @@ error <- 1 - accuracy
 print(sprintf("Neural network accuracy: %f",accuracy))
 
 
-#### inne modele
-#kmeans
+########################################################
+# KMEANS
+########################################################
 klasters <- kmeans(x = data.in[,1:2], centers = 2)
 klasters.groups <- as.factor(klasters$cluster)
 ggplot(data.in, aes(satisfaction_level, last_evaluation, color = klasters.groups)) + geom_point()
 
 
-# kknn
+########################################################
+# KNN
+########################################################
 knn_model <-
   knn(
     cl = data.out[splitSample==1],
@@ -203,7 +230,9 @@ knn_model <-
 
 CrossTable(x=data.out[splitSample==2], y=knn_model, prop.chisq = FALSE, prop.t=FALSE, prop.c=FALSE, prop.r=FALSE)
 
-# model liniowy 
+########################################################
+# MODEL LINIOWY
+########################################################
 lm_model <- lm(formula = data.raw.formula, data = data.train)
 
 plot_data_predicted <- data.frame(x=1:nrow(data.test), y=as.data.frame(prediction)[[1]])
@@ -214,11 +243,16 @@ plot_data_real$c <- plot_data_real$x * plot_data_real$y
 ggplot(plot_data_predicted, aes(x=plot_data_predicted$c,y=plot_data_real$c))+
   geom_point(shape=1, colour = "blue")
 
-# random forest
+########################################################
+# RANDOM FOREST
+########################################################
 random_forest_model <- randomForest(formula = data.raw.formula,  data.train)
 
-### PRAKTYCZNA REALIZACJA UCZENIA ALGORYTMU
 
+########################################################
+# PRAKTYCZNA REALIZACJA UCZENIA ALGORYTMU
+# WALIDACJA KRZYŻOWA
+########################################################
 kFolds = 10;
 data.in.pca.train.folds.indexes <-  createFolds(data.out,
                                                 k = kFolds,
@@ -226,6 +260,9 @@ data.in.pca.train.folds.indexes <-  createFolds(data.out,
                                                 returnTrain = TRUE)
 
 accuracy.summary=0;
+########################################################
+# ZASTOSOWANIE DOWOLNEGO ALGORYTMU KLASYFIKUJĄCEGO NA K ZBIORACH DANYCH
+########################################################
 for (simple.train.fold.indexes in data.in.pca.train.folds.indexes) {
     data.in.train <- as.data.frame(data.in.pca$x[simple.train.fold.indexes, ])
     data.in.test <- as.data.frame(data.in.pca$x[-simple.train.fold.indexes, ])
