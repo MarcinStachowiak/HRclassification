@@ -16,67 +16,61 @@ library(neuralnet)
 library(e1071)
 library(ggbiplot)
 
-
 ########################################################
 # ZAŁADOWANIE DANYCH Z PLIKU
 ########################################################
-data.raw <- read.csv(file.path("data", "HR_comma_sep.csv"),
-                     sep = ",",
-                     header = TRUE)
-
+data.raw <- read.csv(file.path("data", "HR_comma_sep.csv"), sep = ",", header = TRUE)
 
 ########################################################
 # ANALIZA DANYCH
 ########################################################
-str(data.raw)
-print(data.raw)
-summary(data.raw)
+str(data.raw) # struktura danych
+print(data.raw) # wypisanie danych
+summary(data.raw) # podsumowanie kolumn
+
+########################################################
+# ZMIANA KOLEJNOŚCI KOLUMN
+########################################################
+data.raw = data.raw[c(1:6,8:10,7)]
 
 ########################################################
 # RONDZIELENIE NA DANE (CECHY) WEJŚCIOWE I WYJŚCIOWE
 ########################################################
-column_names <- names(data)
-data.in <- data[, !(column_names %in% 'left')]
-data.out <- data[, column_names %in% 'left']
+#column_names <- names(data.raw)
+#data.in <- data.raw[, !(column_names %in% 'left')]
+#data.out <- data.raw[, column_names %in% 'left']
 
 ########################################################
 # RYSOWANIE HISTOGRAMU DLA WYBRANEJ CECHY Z PODZIAŁEM NA KLASY
 ########################################################
-df <- data.frame(
-  data_output=factor(data.out), 
-  data_input=data.in[['sales']]
-)
-mu <- ddply(df, "data_output", summarise, grp.mean=mean(data_input))
-ggplot(
-  df, 
-  aes(x=data_input,fill=data_output,color=data_output)) + 
-  geom_histogram(binwidth =2,alpha=0.5,position="identity") +
-  geom_vline(data=mu, aes(xintercept=grp.mean, color=data_output),linetype="dashed", size=1,show.legend = F) + 
-  labs(title="Histogram sales",x="Poziom sales", y = "Liczba wystąpień") +
-  theme(plot.title = element_text(hjust = 0.5))
+par(mfrow=c(2,1))
+n <- 2 # numer cechy
+hist(data.raw[data.raw$left==0, n],main = paste("Rozkład ", names(data.raw)[n]), ylab = "Wystąpień", xlab="Wartość cechy")  #  histogram pierwszej cechy
+hist(data.raw[data.raw$left==1, n],main = paste("Rozkład ", names(data.raw)[n]), ylab = "Wystąpień", xlab="Wartość cechy")  #  histogram drugiej cechy
+
+########################################################
+# FORMUŁA
+########################################################
+data.raw.formula <- as.formula(paste("left ~", paste(names(data.raw[1:9]), collapse = " + ")))
 
 ########################################################
 # ANALIZA WPŁYWU CECH
 ########################################################
-n <- names(data.raw)
-data.raw.formula <- as.formula(paste("left ~", paste(n[!n %in% "left"], collapse = " + ")))
+par(mfrow=c(1,1))
 attr_importance <- information.gain(data.raw.formula, data.raw)
-column_names <- names(data.raw)
-attr_names <- names(data.raw[, !(column_names %in% 'left')])
+attr_names <- row.names(attr_importance)
 barplot(
   height = attr_importance[[1]],
-  main = 'Information gain',
+  main = 'Ważność cechy',
   names.arg = attr_names,
   col = rainbow(length(t(attr_names))),
   legend.text = attr_names
 )
 
-
 ########################################################
 # TRANSFORMACJA WARTOŚCI NIENUMERWYCZNYCH NA NUMERYCZNE
 ########################################################
-data <- transform(data.raw, sales = as.numeric(sales), salary = as.numeric(salary))
-
+data.in <- transform(data.raw, sales = as.numeric(sales), salary = as.numeric(salary))
 
 ########################################################
 # SKALOWANIE I NORMALIZACJA CECH WEJŚCIOWYCH
@@ -87,42 +81,32 @@ data.in.norm <-
   }))
 
 ### Skalowanie i normalizacja wszystkich danych (potrzebne w niektórych modelach)
-data.norm <-
-  as.data.frame(lapply(data,  function(x) {
-    return ((x - min(x)) / (max(x) - min(x)))
-  }))
-
-
+#data.norm <-
+#  as.data.frame(lapply(data,  function(x) {
+#    return ((x - min(x)) / (max(x) - min(x)))
+#  }))
 
 ########################################################
 # BADANIE KORELACJI POMĘDZY CECHAMI
 ########################################################
-data.in.corr <- cor(data.in.norm)
-col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+data.in.corr <- cor(data.in.norm[1:9])
 
 ########################################################
 # RYSOWANIE WYKRESU KORELACJI
 ########################################################
+col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
 p <- corrplot(data.in.corr, method="color", col=col(200),  
               type="upper", order="hclust", 
-              addCoef.col = "black", # Add coefficient of correlation
-              tl.col="black", tl.srt=45, #Text label color and rotationcorrplot
+              addCoef.col = "black",
+              tl.col="black",
+              tl.srt=30,
               diag=T)
-
-
-
 
 ########################################################
 # ANALIZA SKŁADOWYCH NIEZALEŻNYCH
 ########################################################
-data.in.pca <-
-  prcomp(data.in.norm,
-         center = FALSE,
-         scale = FALSE,
-         retx = TRUE)
-
-n <- colnames(data.in.pca$x)
-data.pca.formula <- as.formula(paste("left ~", paste(n[!n %in% "left"], collapse = " + ")))
+data.in.pca <- prcomp(data.in.norm[1:9], center = FALSE, scale = FALSE, retx = TRUE)
+data.pca.formula <- as.formula(paste("left ~", paste(colnames(data.in.pca$x), collapse = " + ")))
 
 ########################################################
 #RYSOWANIE WYKRESU KUMULATYWNEJ PROPORCJI WYJAŚNIENIA WARIANCJI CECH
@@ -131,160 +115,115 @@ data.in.pca.sdev <- data.in.pca$sdev
 data.in.pca.stddev <- data.in.pca.sdev^2
 data.in.pca.stddev.prop <- data.in.pca.stddev/sum(data.in.pca.stddev)
 
-df <- data.frame(data_y=cumsum(data.in.pca.stddev.prop),
-                 data_x=colnames(data.in.pca$rotation))
+df <- data.frame(data_y=cumsum(data.in.pca.stddev.prop), data_x=colnames(data.in.pca$rotation))
 
-ggplot(df, aes(data_x,data_y,group=1))+
+ggplot(df, aes(data_x, data_y, group=1))+
   geom_line(colour="red") + 
   geom_point(size=3, fill="white")+
   ylim(0,1)+
   geom_text(size = 3, position = position_stack(vjust =0.97),label=round(cumsum(data.in.pca.stddev.prop),digits=2))+
   labs(title='Kumulatywna proporcja wyjasnianej wariancji cech wejściowych przez niezalezne komponenty',x='Niezalezne komponenty', y = 'Kumulatywna proporcja wyjasnionej wariancji')
 
-
 ########################################################
 # NARYSOWANIE WYKRESU BIPLOT
 ########################################################
 ggbiplot(data.in.pca , obs.scale = 1, var.scale = 1, 
-         groups = data.out, ellipse = TRUE, 
+         groups = data.in[,10], ellipse = TRUE, 
          circle = TRUE) +
   scale_color_continuous(name = '') + 
   theme(legend.direction = 'horizontal', legend.position = 'top')
 
-########################################################
-# TESTOWANIE MODELI UCZĄCYCH NA SUROWYCH DANYCH (bez PCA)
-
-# DRZEWA DECYZYJNE
-########################################################
-# Przygotowanie danych treningowych
-splitSample <- sample(1:2, size=nrow(data.raw),prob=c(0.7,0.3), replace=TRUE)
-data.train <- data.raw[splitSample==1,]
-data.test <- data.raw[splitSample==2,]
-
-# Stworzenie modelu Drzewa
-tree_model <- rpart(formula = data.raw.formula,  data = data.train)
-rpart.plot(
-  tree_model ,
-  box.palette = "GnBu",
-  branch.lty = 3,
-  shadow.col = "gray",
-  nn = TRUE
-)
-
-# predykcja
-prediction <- round(predict(tree_model, newdata=data.test[, !(column_names %in% 'left')]))
-
-# nie zawsze działa
-confusionMatrix(prediction, data.test$left)
-
-# ale za to można zrobić macierz manualnie
-dataLevels <-min(data.test$left):max(data.test$left)
-confusion<-table(factor(prediction, levels=dataLevels),factor(data.test$left, levels=dataLevels))
-
-accuracy <- (confusion[1,1]+confusion[2,2])/nrow(data.test)
-error <- 1 - accuracy
-print(sprintf("Tree accuracy: %f",accuracy))
-
 
 ########################################################
-# SIEĆ NEURONOWAE
+# METODA POMOCNICZA
 ########################################################
-splitSample <- sample(1:2, size=nrow(data.norm),prob=c(0.7,0.3), replace=TRUE)
-data.norm.train <- data.norm[splitSample==1,]
-data.norm.test <- data.norm[splitSample==2,]
-
-nn_model <- neuralnet(formula = data.raw.formula, data=data.norm.train, hidden=c(6,3),linear.output=FALSE)
-# graficzne przedstawienie sieci neuronowej
-plot(nn_model)
-
-# predykcja
-prediction.raw <- compute(nn_model, data.norm.test[, !(column_names %in% 'left')])$net.result
-prediction <- round(prediction.raw)
-
-dataLevels <-min(data.norm.test$left):max(data.norm.test$left)
-confusion<-table(factor(prediction, levels=dataLevels),factor(data.norm.test$left, levels=dataLevels))
-accuracy <- (confusion[1,1]+confusion[2,2])/nrow(data.norm.test)
-error <- 1 - accuracy
-
-print(sprintf("Neural network accuracy: %f",accuracy))
-
-
-########################################################
-# KMEANS
-########################################################
-klasters <- kmeans(x = data.in[,1:2], centers = 2)
-klasters.groups <- as.factor(klasters$cluster)
-ggplot(data.in, aes(satisfaction_level, last_evaluation, color = klasters.groups)) + geom_point()
-
-
-########################################################
-# KNN
-########################################################
-knn_model <-
-  knn(
-    cl = data.out[splitSample==1],
-    train = data.in.pca$x[splitSample==1, ],
-    test = data.in.pca$x[splitSample==2, ],
-    k = 1
-  )
-
-CrossTable(x=data.out[splitSample==2], y=knn_model, prop.chisq = FALSE, prop.t=FALSE, prop.c=FALSE, prop.r=FALSE)
-
-########################################################
-# MODEL LINIOWY
-########################################################
-lm_model <- lm(formula = data.raw.formula, data = data.train)
-
-plot_data_predicted <- data.frame(x=1:nrow(data.test), y=as.data.frame(prediction)[[1]])
-plot_data_predicted$c <- plot_data_predicted$x * plot_data_predicted$y
-plot_data_real <- data.frame(x=1:nrow(data.test),y=data.test$left)
-plot_data_real$c <- plot_data_real$x * plot_data_real$y
-
-ggplot(plot_data_predicted, aes(x=plot_data_predicted$c,y=plot_data_real$c))+
-  geom_point(shape=1, colour = "blue")
-
-########################################################
-# RANDOM FOREST
-########################################################
-random_forest_model <- randomForest(formula = data.raw.formula,  data.train)
-
-
-########################################################
-# PRAKTYCZNA REALIZACJA UCZENIA ALGORYTMU
-# WALIDACJA KRZYŻOWA
-########################################################
-kFolds = 10;
-data.in.pca.train.folds.indexes <-  createFolds(data.out,
-                                                k = kFolds,
-                                                list = TRUE,
-                                                returnTrain = TRUE)
-
-accuracy.summary=0;
-########################################################
-# ZASTOSOWANIE DOWOLNEGO ALGORYTMU KLASYFIKUJĄCEGO NA K ZBIORACH DANYCH
-########################################################
-for (simple.train.fold.indexes in data.in.pca.train.folds.indexes) {
-    data.in.train <- as.data.frame(data.in.pca$x[simple.train.fold.indexes, ])
-    data.in.test <- as.data.frame(data.in.pca$x[-simple.train.fold.indexes, ])
-    data.out.train <- data.out[simple.train.fold.indexes]
-    data.out.test <- data.out[-simple.train.fold.indexes]
-  
-  #dodanie kolumny 
-  data.in.train$left <- data.out.train
-  # zbudowanie modelu
-  tree_model <- rpart(formula = data.pca.formula,  data = data.in.train)
-  # predykcja
-  prediction <- round(predict(tree_model, newdata= data.in.test))
-  
-  # obliczenie confusionMatrix
-  dataLevels <-min(data.out.test):max(data.out.test)
-  confusion <- table(factor(prediction, levels=dataLevels),factor(data.out.test, levels=dataLevels))
-  # wyznaczenie skuteczności klasyfikacji
-  accuracy <- (confusion[1,1]+confusion[2,2])/nrow(data.in.test)
-  print(accuracy)
-  accuracy.summary <- accuracy.summary+accuracy
-  error <- 1 - accuracy
-  
+predictMe <- function(modelName, formula, data, testData, trControl){
+  model <- train(formula, method=modelName, data=data, trControl= TC)
+  predictCrossVal <- predict(model, testData)
+  conf <- confusionMatrix(testData$left, predictCrossVal)
+  print(paste(modelName, sprintf(" accuracy: %f", conf$overall["Accuracy"])))
+  list(model=model,
+       prediction=predictCrossVal,
+       overall=conf$overall,
+       confusion=conf$table)
 }
-accuracy.summary <- accuracy.summary/kFolds
-print(accuracy.summary)
+
+########################################################
+# PRZYGOTOWANIE DANYCH TESTOWYCH I TRENINGOWYCH A TAKŻE KFOLDA
+########################################################
+splitSample <- sample(1:2, size=nrow(data.in.norm), prob=c(0.7,0.3), replace=TRUE)
+data.norm.train <- data.in.norm[splitSample==1,]
+data.norm.test <- data.in.norm[splitSample==2,]
+
+data.norm.train$left<-as.factor(data.norm.train$left)
+TC <- trainControl(method = "cv", number = 12, returnData=FALSE, returnResamp="none", savePredictions=FALSE, verboseIter=FALSE , preProcOptions="pca", allowParallel=TRUE)
+
+########################################################
+# nnet
+########################################################
+nnet_prediction <- predictMe("nnet", data.raw.formula, data.norm.train, data.norm.test, TC)
+plotnet(nnet_prediction$model, node_labs = TRUE, var_labs = TRUE)
+########################################################
+# bayesglm
+########################################################
+bayesglm_prediction <- predictMe("bayesglm", data.raw.formula, data.norm.train, data.norm.test, TC)
+########################################################
+# gbm
+########################################################
+gbm_prediction <- predictMe("gbm", data.raw.formula, data.norm.train, data.norm.test, TC)
+plot(gbm_prediction$model) # Accuracy względem iteracji i głębokości drzewa
+########################################################
+# knn
+########################################################
+knn_prediction <- predictMe("knn", data.raw.formula, data.norm.train, data.norm.test, TC)
+plot(knn_prediction$model) # Acuuracy wzklędem ilości sąsiadów
+########################################################
+# nb
+########################################################
+nb_prediction <- predictMe("nb", data.raw.formula, data.norm.train, data.norm.test, TC)
+########################################################
+# rf
+########################################################
+rf_prediction <- predictMe("rf", data.raw.formula, data.norm.train, data.norm.test, TC)
+plot(rf_prediction$model) # Accuracy względem predyktorów
+########################################################
+# rpart
+########################################################
+rpart_prediction <- predictMe("rpart", data.raw.formula, data.norm.train, data.norm.test, TC)
+########################################################
+# svmLinear
+########################################################
+svmLinear_prediction <- predictMe("svmLinear", data.raw.formula, data.norm.train, data.norm.test, TC)
+
+########################################################
+# svmRadial
+########################################################
+svmRadial_prediction <- predictMe("svmRadial", data.raw.formula, data.norm.train, data.norm.test, TC)
+########################################################
+# treebag
+########################################################
+treebag_prediction <- predictMe("treebag", data.raw.formula, data.norm.train, data.norm.test, TC)
+
+trainMethods <- c("Bayesian GLM", "Generalized Boosted Regression",
+                  "K Nearest Neighbor",
+                  "Naive Bayes",
+                  "Neural Net",
+                  "Random Forest",
+                  "Recursive Partitioning and Regression Trees",
+                  "Support Vector Machines Linear",
+                  "Support Vector Machines Radial",
+                  "Bagged Classification and Regression Trees")
+accuracy <- c(nnet_prediction$overall["Accuracy"], 
+              bayesglm_prediction$overall["Accuracy"],  
+              gbm_prediction$overall["Accuracy"], 
+              knn_prediction$overall["Accuracy"], 
+              nb_prediction$overall["Accuracy"], 
+              rf_prediction$overall["Accuracy"], 
+              rpart_prediction$overall["Accuracy"], 
+              svmLinear_prediction$overall["Accuracy"], 
+              svmRadial_prediction$overall["Accuracy"], 
+              treebag_prediction$overall["Accuracy"])
+error <- 1 - accuracy
+
+summary <- data.frame(metoda=trainMethods, accuracy, error)
+summary[order(summary$accuracy),]
